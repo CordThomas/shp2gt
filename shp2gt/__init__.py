@@ -158,6 +158,17 @@ class Shp2Gt (object):
     else:
       return -1, "Could not find start or end vertex"
 
+  def verify(self):
+
+    print("GRAPH PROPERTIES")
+    print (self.graph.list_properties())
+    print("================")
+
+    print("GRAPH ENTITY COUNT")
+    print ("Vertices: {}".format(str(self.graph.num_vertices())))
+    print ("Edges: {}".format(str(self.graph.num_edges())))
+    print("================")
+
   def load(self, src):
     """Load a shapefile and initiate processing"""
     self.shape_layer_src = src
