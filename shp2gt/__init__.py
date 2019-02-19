@@ -22,7 +22,7 @@ from graph_tool.all import *
 
 __author__ = "Cord Thomas"
 __license__ = "MIT"
-__version__ = "0.1"
+__version__ = "0.1.1"
 __maintainer__ = "Cord Thomas"
 __email__ = "cord.thomas@gmail.com"
 __status__ = "Prototype"
@@ -55,7 +55,7 @@ class Shp2Gt (object):
 
       return ls
 
-  def _set_graph_properties(self):
+  def _set_graph_properties(self, key_field):
     """Initiate the graph object with attributes from the shapefile.
 
        Adds some key fields to the vertices needed for network analysis
@@ -64,7 +64,7 @@ class Shp2Gt (object):
        Could also add a weight_traffic or weight_terrain as other measures
        of network performance."""
     v_prop = self._graph.new_vertex_property("string")
-    self._graph.vertex_properties["geoid"] = v_prop
+    self._graph.vertex_properties[key_field] = v_prop
     v_prop = self._graph.new_vertex_property("string")
     self._graph.vertex_properties["latlon"] = v_prop
 
@@ -77,7 +77,7 @@ class Shp2Gt (object):
 
     print(self._graph.list_properties())
 
-  def _add_graph_vertices(self, feature):
+  def _add_graph_vertices(self, feature, key_field):
     """Add the graph verices as the end points of the street geometry.
        This method first checks whether each vertex has already been
        added to the network and if not adds it.  The method
@@ -102,13 +102,13 @@ class Shp2Gt (object):
     start_lat_lon = str(start_vertex_lat)  + ":" + str(start_vertex_lon)
     end_lat_lon = str(end_vertex_lat)  + ":" + str(end_vertex_lon)
 
-    geoid = ""
+    key_value = ""
 
-    if feature.GetFieldIndex("geoid") > -1:
-      geoid = feature.GetField("geoid")
+    if feature.GetFieldIndex(key_field) > -1:
+      key_value = feature.GetField(key_field)
 
     vertex_index = self._graph.vertex_properties["latlon"]
-    vertex_geoid = self._graph.vertex_properties["geoid"]
+    vertex_key = self._graph.vertex_properties[key_field]
 
     """Possibly add the first node of the street segment and set the 
        geoid if it's available"""
@@ -116,7 +116,7 @@ class Shp2Gt (object):
     if (len(vertices) == 0):
       v1 = self._graph.add_vertex()
       vertex_index[self._graph.vertex(v1)] = start_lat_lon
-      vertex_geoid[self._graph.vertex(v1)] = geoid
+      vertex_key[self._graph.vertex(v1)] = key_value
     else:
       v1 = vertices[0]
 
@@ -149,7 +149,7 @@ class Shp2Gt (object):
   def __init__(self):
     self.driver = ogr.GetDriverByName('ESRI Shapefile')
 
-  def get_shortest_path(self, start_geoid, end_geoid):
+  def get_shortest_path(self, start_key, end_key, key_field):
     """Returns the length of and the vertices involved in the shortest path in the network
     :param start_geoid:  The string value of the starting GeoID for the shortest path analysis
     :param end_geoid:  The string value of the ending GeoID for the shortest path analysis
@@ -157,11 +157,11 @@ class Shp2Gt (object):
     weight_distance and the list of vertices and edges in the shortest path network
     """
     start_vertex, end_vertex = None, None
-    vertex_geoid = self._graph.vertex_properties["geoid"]
-    vertices = gutil.find_vertex(self._graph, vertex_geoid, start_geoid)
+    vertex_geoid = self._graph.vertex_properties[key_field]
+    vertices = gutil.find_vertex(self._graph, vertex_geoid, start_key)
     if (len(vertices) > 0):
       start_vertex = vertices[0]
-    vertices = gutil.find_vertex(self._graph, vertex_geoid, end_geoid)
+    vertices = gutil.find_vertex(self._graph, vertex_geoid, end_key)
     if (len(vertices) > 0):
       end_vertex = vertices[0]
 
@@ -187,9 +187,11 @@ class Shp2Gt (object):
     print ("Edges: {}".format(str(self._graph.num_edges())))
     print("================")
 
-  def load(self, src, with_progress=False):
+  def load(self, src, key_field, with_progress=False):
     """Load a shapefile and convert it into a GT network
     :param src:  The absolute path to the Shapefile to convert
+    :param key_field: The name of the field that is the key in
+    the data.  This is not the graph_tool index which is the lat_long.
     :param with_progress:  Show progress as the number of edges
     processed in the Shapefile conversion to GT network; default
     is false.
@@ -201,7 +203,7 @@ class Shp2Gt (object):
     self._shape_layer_defn = self._shape_layer.GetLayerDefn()
 
     self._graph = Graph()
-    self._set_graph_properties()
+    self._set_graph_properties(key_field)
 
     progress_increment = int(self._shape_layer.GetFeatureCount() / 100)
     progress = 0
@@ -210,7 +212,7 @@ class Shp2Gt (object):
       geom = feature.GetGeometryRef()
       length = geom.Length()
 
-      start_vertex, end_vertex = self._add_graph_vertices(feature)
+      start_vertex, end_vertex = self._add_graph_vertices(feature, key_field)
       self._add_graph_edge (feature, start_vertex, end_vertex, length)
       progress += 1
       if (with_progress):

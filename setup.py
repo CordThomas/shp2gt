@@ -5,7 +5,7 @@ def readme():
             return f.read()
 
 setup(name='shp2gt',
-      version='0.1',
+      version='0.1.1',
       description='Shapefile to GT Converter',
       long_description=readme(),
       classifiers=[
