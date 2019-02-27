@@ -22,7 +22,7 @@ from graph_tool.all import *
 
 __author__ = "Cord Thomas"
 __license__ = "MIT"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __maintainer__ = "Cord Thomas"
 __email__ = "cord.thomas@gmail.com"
 __status__ = "Prototype"
@@ -97,6 +97,7 @@ class Shp2Gt (object):
        """
     v1, v2 = None, None
     line_geometry = self._convert_multilinestring_to_linestring(feature.GetGeometryRef())
+    line_geometry.Transform(self._transform)
     start_vertex_lon, start_vertex_lat, start_vertex_z = line_geometry.GetPoint(0)
     end_vertex_lon, end_vertex_lat, end_vertex_z = line_geometry.GetPoint(line_geometry.GetPointCount() - 1)
     start_lat_lon = str(start_vertex_lat)  + ":" + str(start_vertex_lon)
@@ -197,11 +198,18 @@ class Shp2Gt (object):
     is false.
     :return:  None
     """
+
+    self._SRID = 26945
     self._shape_layer_src = src
     self._shape_datasource = self.driver.Open(self._shape_layer_src, 0)
     self._shape_layer = self._shape_datasource.GetLayer(0)
     self._shape_layer_defn = self._shape_layer.GetLayerDefn()
 
+    self._sourceSpatialRef = self._shape_layer_src.GetSpatialRef()
+    self._targetSpatialRef = osr.SpatialReference()
+    self._targetSpatialRef.ImportFromEPSG(self._SRID)
+
+    self._transform = osr.CoordinateTransformation(self._sourceSpatialRef, self._targetSpatialRef)
     self._graph = Graph()
     self._set_graph_properties(key_field)
 
