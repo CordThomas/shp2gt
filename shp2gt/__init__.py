@@ -111,7 +111,7 @@ class Shp2Gt (object):
     vertex_index = self._graph.vertex_properties["latlon"]
     vertex_key = self._graph.vertex_properties[key_field]
 
-    """Possibly add the first node of the street segment and set the 
+    """Possibly add the start node of the street segment and set the 
        geoid if it's available"""
     vertices = gutil.find_vertex(self._graph, vertex_index, start_lat_lon)
     if (len(vertices) == 0):
@@ -121,12 +121,12 @@ class Shp2Gt (object):
     else:
       v1 = vertices[0]
 
-    """Possibly add the second node of the street segment. Here we don't
+    """Possibly add the end node of the street segment. Here we don't
        care about the GeoID because it only belongs on the starting node."""
     vertices = gutil.find_vertex(self._graph, vertex_index, end_lat_lon)
     if (len(vertices) == 0):
       v2 = self._graph.add_vertex()
-      vertex_index[self._graph.vertex(v1)] = start_lat_lon
+      vertex_index[self._graph.vertex(v2)] = end_lat_lon
     else:
       v2 = vertices[0]
 
@@ -145,6 +145,7 @@ class Shp2Gt (object):
       edge_field[edge] = field_value
 
     weight_field = self._graph.edge_properties["weight_dist"]
+    # print("writing weight of {}".format(weight))
     weight_field[edge] = weight
 
   def __init__(self):
@@ -205,19 +206,25 @@ class Shp2Gt (object):
     self._shape_layer = self._shape_datasource.GetLayer(0)
     self._shape_layer_defn = self._shape_layer.GetLayerDefn()
 
-    self._sourceSpatialRef = self._shape_layer_src.GetSpatialRef()
+    self._sourceSpatialRef = self._shape_layer.GetSpatialRef()
     self._targetSpatialRef = osr.SpatialReference()
     self._targetSpatialRef.ImportFromEPSG(self._SRID)
 
     self._transform = osr.CoordinateTransformation(self._sourceSpatialRef, self._targetSpatialRef)
+
     self._graph = Graph()
     self._set_graph_properties(key_field)
 
     progress_increment = int(self._shape_layer.GetFeatureCount() / 100)
     progress = 0
     progress_bar = 0
+
     for feature in self._shape_layer:
+      # if progress == 10:
+      #   break
       geom = feature.GetGeometryRef()
+
+      geom.Transform(self._transform)
       length = geom.Length()
 
       start_vertex, end_vertex = self._add_graph_vertices(feature, key_field)
